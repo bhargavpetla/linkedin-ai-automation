@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
           data
         };
         try {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(update)}\n\n`));
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(update, (_k, v) => typeof v === 'bigint' ? Number(v) : v)}\n\n`));
         } catch (error) {
           console.error('Error encoding SSE update:', error);
         }
@@ -108,6 +108,7 @@ export async function POST(request: NextRequest) {
           source_data: JSON.stringify({ topic: postContent, additionalContext }),
           ai_cost: result.cost
         });
+        const postIdNum = typeof postId === 'bigint' ? Number(postId) : Number(postId);
 
         // Track detailed cost
         await costTracker.trackCost({
@@ -115,7 +116,7 @@ export async function POST(request: NextRequest) {
           operation: 'generate_text',
           tokensUsed: result.tokensUsed,
           cost: result.cost,
-          postId: typeof postId === "bigint" ? Number(postId) : postId,
+          postId: postIdNum,
           metadata: { model: result.model }
         });
 
@@ -125,13 +126,13 @@ export async function POST(request: NextRequest) {
           status: 'success',
           details: `Generated post about: ${postContent.substring(0, 50)}...`,
           cost: result.cost,
-          metadata: JSON.stringify({ topic: postContent, postId })
+          metadata: JSON.stringify({ topic: postContent, postId: postIdNum })
         });
 
         const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
         sendUpdate('complete', `Generation complete (${totalTime}s)!`, 100, {
           post: {
-            id: postId,
+            id: postIdNum,
             content: result.content,
             cost: result.cost
           }

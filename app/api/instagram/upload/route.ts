@@ -77,6 +77,7 @@ export async function POST(request: NextRequest) {
       }),
       ai_cost: result.cost
     });
+    const postIdNum = typeof postId === 'bigint' ? Number(postId) : Number(postId);
 
     // Track cost
     await costTracker.trackCost({
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest) {
       status: 'success',
       details: `Generated post from manual upload: ${videoFile.name}`,
       cost: result.cost,
-      metadata: JSON.stringify({ fileName: videoFile.name, postId })
+      metadata: JSON.stringify({ fileName: videoFile.name, postId: postIdNum })
     });
 
     // Get updated budget
@@ -111,7 +112,7 @@ export async function POST(request: NextRequest) {
         transcription: result.transcription
       },
       post: {
-        id: postId,
+        id: postIdNum,
         content: result.suggestedLinkedInPost,
         tokensUsed: result.tokensUsed,
         cost: result.cost

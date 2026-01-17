@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
         };
 
         try {
-          const jsonString = JSON.stringify(update);
+          const jsonString = JSON.stringify(update, (_k, v) => typeof v === 'bigint' ? Number(v) : v);
           controller.enqueue(encoder.encode(`data: ${jsonString}\n\n`));
         } catch (error: any) {
           console.error('Error encoding SSE update:', error);

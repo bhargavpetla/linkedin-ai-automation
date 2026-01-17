@@ -84,7 +84,8 @@ export const db_helpers = {
         post.ai_cost || 0
       ]
     });
-    return result.lastInsertRowid;
+    // Normalize to number to avoid BigInt serialization issues
+    return Number(result.lastInsertRowid ?? 0);
   },
 
   getPost: async (id: number) => {

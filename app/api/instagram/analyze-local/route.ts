@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
       source_data: JSON.stringify({ filePath: resolved, description }),
       ai_cost: result.cost,
     });
+    const postIdNum = typeof postId === 'bigint' ? Number(postId) : Number(postId);
 
     await costTracker.trackCost({
       service: 'openai',
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
       status: 'success',
       details: `Analyzed local file: ${path.basename(resolved)}`,
       cost: result.cost,
-      metadata: JSON.stringify({ fileName: path.basename(resolved), postId })
+      metadata: JSON.stringify({ fileName: path.basename(resolved), postId: postIdNum })
     });
 
     const budgetSummary = await costTracker.getMonthlySummary();
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest) {
         transcription: result.transcription,
       },
       post: {
-        id: postId,
+        id: postIdNum,
         content: result.suggestedLinkedInPost,
         tokensUsed: result.tokensUsed,
         cost: result.cost,

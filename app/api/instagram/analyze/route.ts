@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
           data
         };
         try {
-          if (!closed) controller.enqueue(encoder.encode(`data: ${JSON.stringify(update)}\n\n`));
+          if (!closed) controller.enqueue(encoder.encode(`data: ${JSON.stringify(update, (_k, v) => typeof v === 'bigint' ? Number(v) : v)}\n\n`));
         } catch (error) {
           console.error('Error encoding SSE update:', error);
         }
@@ -145,6 +145,7 @@ export async function POST(request: NextRequest) {
               }),
               ai_cost: totalCost
             });
+            const postIdNum = typeof postId === 'bigint' ? Number(postId) : Number(postId);
 
             // Track detailed cost if available
             if (totalCost > 0) {
@@ -152,7 +153,7 @@ export async function POST(request: NextRequest) {
                 service: 'gemini',
                 operation: 'reel_analysis',
                 cost: totalCost,
-                postId: typeof postId === 'bigint' ? Number(postId) : (postId as number | undefined)
+                postId: postIdNum
               });
             }
 
@@ -162,12 +163,12 @@ export async function POST(request: NextRequest) {
               status: 'success',
               details: `Generated post from ${downloadedFilePath ? 'reel download' : 'description'}.`,
               cost: totalCost,
-              metadata: JSON.stringify({ videoUrl, postId })
+              metadata: JSON.stringify({ videoUrl, postId: postIdNum })
             });
 
             sendUpdate('complete', 'Post generated successfully!', 100, {
               post: {
-                id: postId,
+                id: postIdNum,
                 content: result.suggestedLinkedInPost,
                 cost: totalCost
               },
