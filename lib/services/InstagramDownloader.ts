@@ -20,7 +20,8 @@ class InstagramDownloader {
   private ytDlpPath: string | null = null;
 
   constructor() {
-    this.tempDir = path.join(process.cwd(), 'temp');
+    const baseTemp = process.env.VERCEL ? '/tmp' : path.join(process.cwd(), 'temp');
+    this.tempDir = path.join(baseTemp, 'linkedin-temp');
 
     // Ensure temp directory exists
     if (!fs.existsSync(this.tempDir)) {
@@ -34,6 +35,12 @@ class InstagramDownloader {
    * Ensure yt-dlp binary is available. Downloads it locally if missing.
    */
   private async ensureYtDlp(): Promise<void> {
+    // On Vercel/serverless, avoid downloading/using yt-dlp binaries
+    if (process.env.VERCEL) {
+      this.ytDlp = null;
+      this.ytDlpPath = null;
+      throw new Error('yt-dlp not supported on serverless environment');
+    }
     if (this.ytDlp) return;
 
     const binDir = path.join(this.tempDir, 'bin');
@@ -300,7 +307,26 @@ class InstagramDownloader {
       };
     }
 
-    // Use yt-dlp (audio-only) to avoid video downloads and extraction
+    // Try btch-downloader (direct media URL via API)
+    console.log('Trying btch-downloader (igdl)...');
+    const igdlResult = await this.downloadWithBtch(url);
+    debugInfo.attempts.push({ method: 'igdl', result: igdlResult });
+    if (igdlResult.success) {
+      // Ensure file exists and has audio if possible
+      const ext0 = path.extname(igdlResult.filePath!).toLowerCase();
+      const audioExts0 = new Set(['.m4a', '.mp3', '.aac', '.wav', '.ogg', '.flac', '.mpega', '.mp4', '.mkv']);
+      if (audioExts0.has(ext0)) {
+        const hasAudio0 = ext0 === '.mp4' || ext0 === '.mkv' ? await this.hasAudioStream(igdlResult.filePath!) : true;
+        if (hasAudio0) {
+          return { ...igdlResult, debugInfo };
+        }
+      } else {
+        // Unknown extension but still return if downloaded
+        return { ...igdlResult, debugInfo };
+      }
+    }
+
+    // Use yt-dlp (audio-only) to avoid video downloads and extraction (if supported)
     console.log('Trying yt-dlp (audio-only)...');
     const ytdlpResult = await this.downloadWithYtDlp(url);
     debugInfo.attempts.push({ method: 'ytdlp', result: ytdlpResult });

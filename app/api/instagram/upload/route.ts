@@ -35,7 +35,8 @@ export async function POST(request: NextRequest) {
     const bytes = await videoFile.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    const tempDir = path.join(process.cwd(), 'temp');
+    const baseTemp = process.env.VERCEL ? '/tmp' : process.cwd();
+    const tempDir = path.join(baseTemp, 'temp');
     const videoPath = path.join(tempDir, `upload-${Date.now()}-${videoFile.name}`);
 
     await writeFile(videoPath, buffer);

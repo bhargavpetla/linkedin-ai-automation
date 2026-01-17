@@ -109,7 +109,8 @@ class VideoAnalysisService {
     await ffmpeg.exec(['-i', inputName, '-vn', '-acodec', 'libmp3lame', '-ar', '44100', '-ac', '2', '-b:a', '192k', outputName]);
     const audioData = await ffmpeg.readFile(outputName);
     // Save to temp dir
-    const tempDir = path.join(process.cwd(), 'temp');
+    const baseTemp = process.env.VERCEL ? '/tmp' : process.cwd();
+    const tempDir = path.join(baseTemp, 'temp');
     if (!fs.existsSync(tempDir)) {
       fs.mkdirSync(tempDir, { recursive: true });
     }
@@ -450,7 +451,8 @@ Extract key themes and return a JSON object with:
    * Save uploaded video file
    */
   async saveUploadedVideo(fileBuffer: Buffer, filename: string): Promise<string> {
-    const tempDir = path.join(process.cwd(), 'temp');
+    const baseTemp = process.env.VERCEL ? '/tmp' : process.cwd();
+    const tempDir = path.join(baseTemp, 'temp');
 
     // Ensure directory exists
     if (!fs.existsSync(tempDir)) {
@@ -467,7 +469,8 @@ Extract key themes and return a JSON object with:
    * Clean up temp video files
    */
   async cleanupTempFiles(olderThanHours: number = 24): Promise<void> {
-    const tempDir = path.join(process.cwd(), 'temp');
+    const baseTemp = process.env.VERCEL ? '/tmp' : process.cwd();
+    const tempDir = path.join(baseTemp, 'temp');
 
     if (!fs.existsSync(tempDir)) {
       return;
