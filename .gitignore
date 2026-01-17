@@ -33,6 +33,15 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# project specific
+/backups/
+/temp/
+/data/omdb_cache/
+/public/generated-infographics/
+*.log
+*.sqlite
+*.sqlite-journal
+
 # vercel
 .vercel
 
