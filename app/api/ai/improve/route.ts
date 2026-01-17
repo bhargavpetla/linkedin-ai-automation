@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
         status: 'error',
         details: error.message,
         metadata: JSON.stringify({
-          originalContent: originalPost?.substring(0, 100)
+          // originalContent: originalPost?.substring(0, 100)
         })
       });
     } catch (logErr) {}
