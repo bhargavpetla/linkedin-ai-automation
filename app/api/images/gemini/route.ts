@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       if (m && m[1]) steps.push(m[1].trim());
       if (steps.length >= 6) break;
     }
-    const nums = Array.from(text.matchAll(/\b(\d{1,3}(?:,\d{3})*|\d+)(?:%|\s*(?:ms|s|m|h|K|M|B))?\b/g)).map(m => m[0]).slice(0, 6);
+    const nums = Array.from(text.matchAll(/\b(\d{1,3}(?:,\d{3})*|\d+)(?:%|\s*(?:ms|s|m|h|K|M|B))?\b/g)).map((m: RegExpMatchArray) => m[0]).slice(0, 6);
     const hasYear = /\b(19\d{2}|20\d{2})\b/.test(text);
     const hasPercent = /\b\d+%\b/.test(text);
     let template: 'educational_steps' | 'kpi_dashboard' | 'timeline' | 'single_stat' | 'comparison' = 'educational_steps';
