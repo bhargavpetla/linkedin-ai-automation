@@ -37,7 +37,8 @@ export async function POST(request: NextRequest) {
 
     // Update post in database if postId provided
     if (postId) {
-      await db_helpers.updatePost(postId, {
+      const numericPostId = typeof postId === 'bigint' ? Number(postId) : Number(postId);
+      await db_helpers.updatePost(numericPostId, {
         content: result.content,
         ai_cost: result.cost
       });
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
       service: 'gemini',
       operation: 'improve_text',
       cost: estimatedCost,
-      postId: postId || undefined
+      postId: postId ? (typeof postId === 'bigint' ? Number(postId) : Number(postId)) : undefined
     });
 
     // Add Log
@@ -73,12 +74,15 @@ export async function POST(request: NextRequest) {
 
     // Log Error
     try {
+      const body = await request.clone().json().catch(() => ({}));
+      const originalPostForLog = body.originalPost || '';
+      
       await db_helpers.addLog({
         process_type: 'ai_post',
         status: 'error',
         details: error.message,
         metadata: JSON.stringify({
-          // originalContent: originalPost?.substring(0, 100)
+          originalContent: originalPostForLog.substring(0, 100)
         })
       });
     } catch (logErr) {}

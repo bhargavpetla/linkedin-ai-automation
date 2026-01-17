@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { aiService } from '@/lib/services/AIService';
 import { costTracker } from '@/lib/services/CostTracker';
+import { db_helpers } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -42,6 +43,15 @@ export async function POST(request: NextRequest) {
       }
     });
 
+    // Add Log
+    await db_helpers.addLog({
+      process_type: 'post_analysis',
+      status: 'success',
+      details: `Analyzed post: ${post.substring(0, 50)}...`,
+      cost: estimatedCost,
+      metadata: JSON.stringify({ overallScore: analysis.overallScore })
+    });
+
     return NextResponse.json({
       success: true,
       analysis: {
@@ -52,6 +62,15 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('Error analyzing post:', error);
+
+    // Log Error
+    try {
+      await db_helpers.addLog({
+        process_type: 'post_analysis',
+        status: 'error',
+        details: error.message
+      });
+    } catch (logErr) {}
 
     return NextResponse.json(
       {

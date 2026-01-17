@@ -95,7 +95,7 @@ export const db_helpers = {
     const fields = Object.keys(updates).map(key => `${key} = ?`).join(', ');
     const values = [...Object.values(updates), id];
     const sql = `UPDATE posts SET ${fields}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
-    return await db.execute({ sql, args: values });
+    return await db.execute({ sql, args: values as any[] });
   },
 
   deletePost: async (id: number) => {
