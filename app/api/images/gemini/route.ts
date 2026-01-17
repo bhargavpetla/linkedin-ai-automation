@@ -23,9 +23,9 @@ export async function POST(request: NextRequest) {
     // Build Reddit Nano Banana style prompt from provided content
     const src = (context || topic || title || '').toString();
     const text = src.replace(/\r/g, '');
-    const firstLine = text.split('\n').find((l) => l.trim().length > 0) || (title ? String(title) : '');
+    const firstLine = text.split('\n').find((l: string) => l.trim().length > 0) || (title ? String(title) : '');
     const headline = firstLine.replace(/[\"']/g, '').slice(0, 100);
-    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const lines = text.split('\n').map((l: string) => l.trim()).filter(Boolean);
     const stepRx = /^(?:\d+\.|[-•])\s*(.+)$/;
     const steps: string[] = [];
     for (const l of lines) {
