@@ -131,10 +131,10 @@ export async function POST(request: NextRequest) {
             );
           }
 
-          if (result && result.post) {
+          if (result && result.suggestedLinkedInPost) {
             totalCost = result.cost || 0;
             const postId = await db_helpers.createPost({
-              content: result.post.content,
+              content: result.suggestedLinkedInPost,
               status: 'draft',
               source_type: 'instagram',
               source_data: JSON.stringify({
@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
                 service: 'gemini',
                 operation: 'reel_analysis',
                 cost: totalCost,
-                postId: postId as number
+                postId: typeof postId === 'bigint' ? Number(postId) : (postId as number | undefined)
               });
             }
 
@@ -167,7 +167,7 @@ export async function POST(request: NextRequest) {
             sendUpdate('complete', 'Post generated successfully!', 100, {
               post: {
                 id: postId,
-                content: result.post.content,
+                content: result.suggestedLinkedInPost,
                 cost: totalCost
               },
               transcription: result.transcription

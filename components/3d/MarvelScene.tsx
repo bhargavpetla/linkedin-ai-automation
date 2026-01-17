@@ -2,6 +2,7 @@
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Float, OrbitControls, Sparkles, Stars, Line, Box, Octahedron, Icosahedron, Torus } from '@react-three/drei';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { JSX } from 'react';
 
 // --- LAMBO COLOR PALETTE ---
 const C_VERDE = '#7ED321';   // Verde Mantis
@@ -210,7 +211,7 @@ function useIsMobile() {
 
 export default function MarvelScene() {
   const isMobile = useIsMobile();
-  const dpr = useMemo(() => (isMobile ? [1, 1] : [1, 2]), [isMobile]);
+  const dpr = useMemo<[number, number]>(() => (isMobile ? [1, 1] : [1, 2]), [isMobile]);
   const sparklesCount = isMobile ? 30 : 60;
   const starsCount = isMobile ? 400 : 1500;
   const autoRotateSpeed = isMobile ? 0.2 : 0.4;

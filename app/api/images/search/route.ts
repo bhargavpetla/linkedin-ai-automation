@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { imageService } from '@/lib/services/ImageService';
 import { costTracker } from '@/lib/services/CostTracker';
+import { db_helpers } from '@/lib/db';
 
 /**
  * Post-Based Infographic Generation API with Server-Sent Events (SSE)

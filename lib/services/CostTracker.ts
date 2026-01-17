@@ -72,7 +72,7 @@ class CostTracker {
       console.error(`🚨 Budget exceeded: $${monthlyTotal.toFixed(2)} spent this month!`);
     }
 
-    return result as number;
+    return typeof result === 'bigint' ? Number(result) : Number(result || 0);
   }
 
   /**

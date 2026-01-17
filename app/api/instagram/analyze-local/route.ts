@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       service: 'openai',
       operation: 'whisper_transcription',
       cost: result.cost,
-      postId: postId as number,
+      postId: typeof postId === 'bigint' ? Number(postId) : (postId as number | undefined),
       metadata: { localFile: true },
     });
 
