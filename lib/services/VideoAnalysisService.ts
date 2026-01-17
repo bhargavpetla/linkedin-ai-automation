@@ -2,7 +2,6 @@ import { GoogleGenAI } from '@google/genai';
 import OpenAI from 'openai';
 import fs from 'fs';
 import path from 'path';
-import { FFmpeg } from '@ffmpeg/ffmpeg';
 
 export interface VideoAnalysisResult {
   summary: string;
@@ -94,32 +93,9 @@ class VideoAnalysisService {
     };
   }
 
-  /**
-   * Extract audio from video file (simplified - delegates to description fallback)
-   * Since FFmpeg system binary is not available, we gracefully fallback to description analysis
-   */
-  private async extractAudio(videoPath: string): Promise<string> {
-    // Use ffmpeg.wasm (FFmpeg class) to extract audio from video
-    const ffmpeg = new FFmpeg();
-    await ffmpeg.load();
-    const inputName = path.basename(videoPath);
-    const outputName = inputName.replace(/\.[^.]+$/, '.mp3');
-    const data = fs.readFileSync(videoPath);
-    await ffmpeg.writeFile(inputName, data);
-    await ffmpeg.exec(['-i', inputName, '-vn', '-acodec', 'libmp3lame', '-ar', '44100', '-ac', '2', '-b:a', '192k', outputName]);
-    const audioData = await ffmpeg.readFile(outputName);
-    // Save to temp dir
-    const baseTemp = process.env.VERCEL ? '/tmp' : process.cwd();
-    const tempDir = path.join(baseTemp, 'temp');
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
-    }
-    const audioPath = path.join(tempDir, `${Date.now()}-${outputName}`);
-    fs.writeFileSync(audioPath, Buffer.from(audioData));
-    // Clean up ffmpeg FS
-    await ffmpeg.deleteFile(inputName);
-    await ffmpeg.deleteFile(outputName);
-    return audioPath;
+  // No-op placeholder: we do not extract audio on serverless. We transcribe supported containers directly.
+  private async extractAudio(_videoPath: string): Promise<string> {
+    throw new Error('Audio extraction is not supported in this environment');
   }
 
   /**
@@ -203,17 +179,20 @@ class VideoAnalysisService {
     let whisperCost = 0;
     let audioPath: string | null = null;
     const ext = path.extname(videoPath).toLowerCase();
-    const isAudioFile = ['.m4a', '.mp3', '.aac', '.wav', '.ogg', '.flac', '.mpega'].includes(ext);
+    const audioExts = ['.m4a', '.mp3', '.aac', '.wav', '.ogg', '.flac', '.mpega'];
+    const videoExts = ['.mp4', '.mov', '.webm', '.mkv', '.mpg', '.mpeg', '.m4v', '.avi'];
+    const isAudioFile = audioExts.includes(ext);
 
     try {
       // Step 1: Extract or use existing audio
       if (isAudioFile) {
         console.log('Detected audio file input, skipping extraction...');
         audioPath = videoPath;
+      } else if (videoExts.includes(ext)) {
+        console.log('Detected transcribable video file, using directly for transcription...');
+        audioPath = videoPath; // Whisper supports video containers like mp4
       } else {
-        console.log('Step 1: Extracting audio from video...');
-        audioPath = await this.extractAudio(videoPath);
-        console.log('Audio extracted successfully');
+        throw new Error(`Unsupported file type for transcription: ${ext}`);
       }
 
       // Wrap transcription and analysis in inner try/catch
