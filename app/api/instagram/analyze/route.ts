@@ -25,6 +25,7 @@ export async function POST(request: NextRequest) {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
+      let closed = false;
       const sendUpdate = (step: string, message: string, progress: number, data?: any) => {
         const update = {
           step,
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
           data
         };
         try {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(update)}\n\n`));
+          if (!closed) controller.enqueue(encoder.encode(`data: ${JSON.stringify(update)}\n\n`));
         } catch (error) {
           console.error('Error encoding SSE update:', error);
         }
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
                   sendUpdate('error', 'No description provided for fallback', 0, {
                     error: 'Audio extraction failed and no description provided'
                   });
-                  controller.close();
+                  if (!closed) { controller.close(); closed = true; }
                   return;
                 }
 
@@ -113,7 +114,7 @@ export async function POST(request: NextRequest) {
                 sendUpdate('error', 'No description provided for fallback', 0, {
                   error: 'Download failed and no description provided'
                 });
-                controller.close();
+                if (!closed) { controller.close(); closed = true; }
                 return;
               }
 
@@ -201,7 +202,7 @@ export async function POST(request: NextRequest) {
 
         sendUpdate('error', `Analysis failed: ${error.message}`, 0);
       } finally {
-        controller.close();
+        if (!closed) { controller.close(); closed = true; }
       }
     }
   });

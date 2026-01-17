@@ -4,6 +4,7 @@ import fs from 'fs';
 import { SCHEMA } from './schema';
 
 let client: Client | null = null;
+let initPromise: Promise<void> | null = null;
 
 export function getDatabase(): Client {
   if (client) {
@@ -43,6 +44,19 @@ export async function initializeDatabase(): Promise<void> {
   }
 }
 
+// Ensure schema exists exactly once per runtime
+export async function ensureDatabaseInitialized(): Promise<void> {
+  if (!initPromise) {
+    initPromise = initializeDatabase()
+      .catch((err) => {
+        // Reset to allow retry on next call
+        initPromise = null;
+        throw err;
+      });
+  }
+  return initPromise;
+}
+
 export function closeDatabase(): void {
   if (client) {
     client.close();
@@ -55,6 +69,7 @@ export function closeDatabase(): void {
 export const db_helpers = {
   // Posts
   createPost: async (post: any) => {
+    await ensureDatabaseInitialized();
     const db = getDatabase();
     const result = await db.execute({
       sql: `INSERT INTO posts (content, image_url, image_source, status, source_type, source_data, ai_cost)
@@ -73,6 +88,7 @@ export const db_helpers = {
   },
 
   getPost: async (id: number) => {
+    await ensureDatabaseInitialized();
     const db = getDatabase();
     const result = await db.execute({
       sql: 'SELECT * FROM posts WHERE id = ?',
@@ -82,6 +98,7 @@ export const db_helpers = {
   },
 
   getAllPosts: async (limit = 50) => {
+    await ensureDatabaseInitialized();
     const db = getDatabase();
     const result = await db.execute({
       sql: 'SELECT * FROM posts ORDER BY created_at DESC LIMIT ?',
@@ -91,6 +108,7 @@ export const db_helpers = {
   },
 
   updatePost: async (id: number, updates: any) => {
+    await ensureDatabaseInitialized();
     const db = getDatabase();
     const fields = Object.keys(updates).map(key => `${key} = ?`).join(', ');
     const values = [...Object.values(updates), id];
@@ -99,6 +117,7 @@ export const db_helpers = {
   },
 
   deletePost: async (id: number) => {
+    await ensureDatabaseInitialized();
     const db = getDatabase();
     return await db.execute({
       sql: 'DELETE FROM posts WHERE id = ?',
@@ -108,6 +127,7 @@ export const db_helpers = {
 
   // API Costs
   trackCost: async (cost: any) => {
+    await ensureDatabaseInitialized();
     const db = getDatabase();
     const result = await db.execute({
       sql: `INSERT INTO api_costs (service, operation, tokens_used, cost, post_id, metadata)
@@ -126,6 +146,7 @@ export const db_helpers = {
 
   // Processing Logs
   addLog: async (log: any) => {
+    await ensureDatabaseInitialized();
     const db = getDatabase();
     const result = await db.execute({
       sql: `INSERT INTO processing_logs (process_type, status, details, cost, metadata)
@@ -142,6 +163,7 @@ export const db_helpers = {
   },
 
   getLogs: async (limit = 100) => {
+    await ensureDatabaseInitialized();
     const db = getDatabase();
     const result = await db.execute({
       sql: 'SELECT * FROM processing_logs ORDER BY created_at DESC LIMIT ?',
@@ -151,6 +173,7 @@ export const db_helpers = {
   },
 
   getCostSummary: async (startDate?: string, endDate?: string) => {
+    await ensureDatabaseInitialized();
     const db = getDatabase();
     let sql = `
       SELECT
@@ -173,6 +196,7 @@ export const db_helpers = {
   },
 
   getTotalCostThisMonth: async () => {
+    await ensureDatabaseInitialized();
     const db = getDatabase();
     const result = await db.execute(`
       SELECT SUM(cost) as total
@@ -184,6 +208,7 @@ export const db_helpers = {
   },
 
   getRecentCosts: async (limit = 20) => {
+    await ensureDatabaseInitialized();
     const db = getDatabase();
     const result = await db.execute({
       sql: 'SELECT * FROM api_costs ORDER BY created_at DESC LIMIT ?',
