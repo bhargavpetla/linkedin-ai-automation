@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
           operation: 'generate_text',
           tokensUsed: result.tokensUsed,
           cost: result.cost,
-          postId: postId as number,
+          postId: typeof postId === "bigint" ? Number(postId) : postId,
           metadata: { model: result.model }
         });
 
