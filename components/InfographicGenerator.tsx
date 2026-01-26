@@ -68,63 +68,75 @@ export default function InfographicGenerator({ postContent, topic, onGenerated }
         throw new Error('No response body');
       }
 
+      let buffer = '';
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n\n');
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split('\n\n');
+        
+        // Keep the last part in the buffer as it might be incomplete
+        buffer = parts.pop() || '';
 
-        for (const line of lines) {
+        for (const part of parts) {
+          const line = part.trim();
+          if (!line) continue;
+
           if (line.startsWith('data: ')) {
-            const data = JSON.parse(line.slice(6));
+            try {
+              const data = JSON.parse(line.slice(6));
 
-            // Update progress
-            setProgress(data.progress);
-            setCurrentStep(data.step);
-            setStepMessage(data.message);
+              // Update progress
+              setProgress(data.progress);
+              setCurrentStep(data.step);
+              setStepMessage(data.message);
 
-            // Add to logs
-            setProgressLogs(prev => [...prev, {
-              step: data.step,
-              message: data.message,
-              timestamp: data.timestamp,
-              data: data.data
-            }]);
+              // Add to logs
+              setProgressLogs(prev => [...prev, {
+                step: data.step,
+                message: data.message,
+                timestamp: data.timestamp,
+                data: data.data
+              }]);
 
-            // Handle completion
-            if (data.step === 'complete' && data.data) {
-              const fallbackInfographic = {
-                templateUsed: data.data?.infographic?.templateUsed || data.data?.analysis?.contentType || data.data?.style?.selected || 'educational_steps',
-                extractedData: data.data?.infographic?.extractedData || {
-                  headline: data.data?.analysis?.mainTopic,
-                  keyPoints: data.data?.analysis?.keyPoints,
-                  metrics: data.data?.analysis?.keyMetrics
-                },
-                webResearch: data.data?.infographic?.webResearch || data.data?.analysis?.visualConcept || ''
-              } as InfographicData;
+              // Handle completion
+              if (data.step === 'complete' && data.data) {
+                const fallbackInfographic = {
+                  templateUsed: data.data?.infographic?.templateUsed || data.data?.analysis?.contentType || data.data?.style?.selected || 'educational_steps',
+                  extractedData: data.data?.infographic?.extractedData || {
+                    headline: data.data?.analysis?.mainTopic,
+                    keyPoints: data.data?.analysis?.keyPoints,
+                    metrics: data.data?.analysis?.keyMetrics
+                  },
+                  webResearch: data.data?.infographic?.webResearch || data.data?.analysis?.visualConcept || ''
+                } as InfographicData;
 
-              const info: InfographicData = data.data.infographic || fallbackInfographic;
-              setInfographicData(info);
-              setImageUrl(data.data.imageUrl);
-              setPhotos(data.data.photos || data.data.stockPhotos || []);
-              setCost(data.data.cost || 0);
+                const info: InfographicData = data.data.infographic || fallbackInfographic;
+                setInfographicData(info);
+                setImageUrl(data.data.imageUrl);
+                setPhotos(data.data.photos || data.data.stockPhotos || []);
+                setCost(data.data.cost || 0);
 
-              const tpl = info.templateUsed || 'educational_steps';
-              const costStr = (data.data.cost != null) ? `$${Number(data.data.cost).toFixed(4)}` : '$0.0000';
-              toast.success(
-                `Infographic generated! Template: ${tpl}`,
-                { description: `Total time: ${data.data.totalTime || '?'}s | Cost: ${costStr}` }
-              );
+                const tpl = info.templateUsed || 'educational_steps';
+                const costStr = (data.data.cost != null) ? `$${Number(data.data.cost).toFixed(4)}` : '$0.0000';
+                toast.success(
+                  `Infographic generated! Template: ${tpl}`,
+                  { description: `Total time: ${data.data.totalTime || '?'}s | Cost: ${costStr}` }
+                );
 
-              if (onGenerated) {
-                onGenerated({ ...info, imageUrl: data.data.imageUrl });
+                if (onGenerated) {
+                  onGenerated({ ...info, imageUrl: data.data.imageUrl });
+                }
               }
-            }
 
-            // Handle errors
-            if (data.step === 'error') {
-              throw new Error(data.data?.error || 'Unknown error');
+              // Handle errors
+              if (data.step === 'error') {
+                throw new Error(data.data?.error || 'Unknown error');
+              }
+            } catch (e) {
+              console.error('Error parsing SSE message:', e);
             }
           }
         }

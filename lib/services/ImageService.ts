@@ -1,8 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import axios from 'axios';
 import sharp from 'sharp';
-import fs from 'fs';
-import path from 'path';
 
 export interface GeneratedImage {
   url: string;
@@ -39,6 +37,7 @@ export interface ImageGenerationOptions {
   colorScheme: 'tech-blue' | 'modern-gradient' | 'dark-mode' | 'clean-white' | 'vibrant-tech';
   aspectRatio: '16:9' | '1:1' | '4:5';
   includeText: boolean;
+  analysis?: PostAnalysis;
 }
 
 // Tech-focused color palettes optimized for LinkedIn
@@ -143,7 +142,7 @@ class ImageService {
     console.log('🎨 Starting post-based image generation...');
 
     // Step 1: Deep analysis of post content
-    const analysis = await this.analyzePostContent(postContent);
+    const analysis = options.analysis || await this.analyzePostContent(postContent);
     console.log('📊 Post analysis complete:', analysis.mainTopic);
 
     // Step 2: Build Bhargav Architect prompt directly from post content (no templates)
@@ -151,7 +150,7 @@ class ImageService {
     console.log('📝 Prompt generated, length:', prompt.length);
 
     // Step 4: Generate image with Gemini Imagen
-    const result = await this.generateWithGeminiImagen(prompt);
+    const result = await this.generateWithGeminiImagen(prompt, analysis);
 
     return {
       imageUrl: result.imageUrl,
@@ -166,13 +165,49 @@ class ImageService {
    * Build the "Bhargav" Infographic Architect prompt strictly from post content
    */
   public buildBhargavArchitectPrompt(postContent: string, analysis?: PostAnalysis): string {
-    const sys = `System Instruction: The "Bhargav" Infographic Architect\nRole: You are an expert Technical Information Designer. Your mission is to convert a raw LinkedIn post into a clean, minimalist, high-fidelity 4K infographic that explains complex AI concepts through visual logic and "Before vs. After" comparisons.\n\n1. The Content Intelligence Phase:\n- Identify the Contrast: Analyze the input text to find the "Old Paradigm" and the "New Paradigm".\n- Extract the "Power Trio": Find exactly three core benefits or metrics to feature in bottom Metric Cards.\n- Distill the Headline: Create a punchy, 5-8 word headline that defines the Shift.\n\n2. Visual Layout & Composition (The Grid):\n- Background: Clean off-white (#F8F9FA) or light-grey with ample white space.\n- Header: Bold, black sans-serif title at the top center.\n- Central Comparison Box: large rounded container split into two vertical panels. Left (Problem, muted grey, show limitation). Right (Solution, soft accent Teal #2D7D9A or Indigo #4F46E5, show mechanism like Python Sandbox or Recursive Flow).\n- Bottom Metric Cards: three distinct white rounded cards, each with an icon and short (2-5 word) label.\n- Footer Watermark: "Bhargav" centered bottom in small neutral sans-serif.\n\n3. Aesthetic & "Nano Banana" Quality Directives:\n- Style: NotebookLM aesthetic — modern, minimalist, documentation-style, flat with soft depth.\n- Iconography: clean professional line-art icons.\n- Text Clarity: labels only, perfect legibility.\n- Technical Suffix: Always generate using: “Nano Banana Pro 4K, high-fidelity text rendering, perfect alignment, clean UI, ultra-sharp --text-sharp --v 2026.”\n\n4. Constraints:\n- Strictly no "NotebookLM" branding text or logos.\n- Language: English only.\n- Simplicity: Remove any element that doesn’t add information. Prioritize Information Gain over decoration.`;
+    const sys = `You are an expert information designer and visual communicator. Your task is to create a professional, visually appealing, and accurate infographic based solely on the text provided in the user's post.
+
+Process:
+
+Analyze the Source: Read the user's post thoroughly to identify the main topic, the core message, and the key supporting points or steps (typically 3-4 distinct ideas).
+
+Structure the Layout: Design a clean, organized layout to present these points logically. A horizontal, three-panel structure or a step-by-step flowchart is often effective.
+
+Synthesize Content:
+
+Title: Create a concise, engaging title that summarizes the entire post.
+
+Headers: For each section/panel, extract a clear, short header from the text.
+
+Visuals: Select relevant icons, diagrams, or illustrations to visually represent each key point.
+
+Text: Write brief, punchy captions or bullet points under each visual, directly summarizing the corresponding information from the post. Avoid long paragraphs.
+
+Apply Style Guidelines:
+
+Aesthetic: Modern, clean, and professional. Use a professional color palette (e.g., blues, purples, greens, greys) with clear visual hierarchy.
+
+Elements: Use rounded corners for containers, clear connecting lines or arrows to show flow, and subtle background gradients or patterns.
+
+Typography: Use bold, clear fonts for titles and headers, and legible fonts for body text.
+
+Finalize: Ensure the infographic accurately reflects the post's content without adding external information. Include the name "Bhargav" in small text at the bottom center as a watermark.`;
 
     const context = `POST CONTENT:\n${postContent}`;
     // Provide optional hints extracted from analysis, without forcing templates
     const hints = analysis ? `\n\nHINTS (optional, for context only):\nSuggested topic: ${analysis.mainTopic}\nKey points: ${analysis.keyPoints.slice(0,3).join(' | ')}\nNumbers: ${analysis.keyMetrics.map(m=>m.value).slice(0,3).join(' | ')}` : '';
+    
+    // Add specific visual style description matching the DeepSeek example
+    const styleRef = `\n\nVISUAL STYLE REFERENCE:
+- Layout: Horizontal comparison of 3 distinct panels/cards side-by-side.
+- Cards: Rounded rectangular cards with soft gradient backgrounds (light blue/green/teal).
+- Diagrams: Schematic technical diagrams inside each card (blocks, arrows, flows).
+- Background: Clean white or very light gradient background.
+- Title: Bold, centered black text at the top.
+- Color Palette: Tech-focused blues, teals, and soft greens.
+- Watermark: Small "Bhargav" text at bottom center.`;
 
-    return `${sys}\n\n${context}${hints}`;
+    return `${sys}\n\n${context}${hints}${styleRef}`;
   }
 
   /**
@@ -578,21 +613,28 @@ MOOD: Professional yet innovative, forward-thinking tech aesthetic
   }
 
   /**
-   * Generate image using Gemini 2.5 Flash Image (Nano Banana)
-   * This model is designed for speed and efficiency, optimized for high-volume, low-latency tasks.
+   * Generate image using Nano Banana Pro (Gemini 3 Pro Image Preview)
+   * This is the latest, most advanced version for high-quality infographic generation.
    */
-  private async generateWithGeminiImagen(prompt: string): Promise<{
+  private async generateWithGeminiImagen(prompt: string, analysis?: PostAnalysis): Promise<{
     imageUrl: string;
     imageBase64?: string;
     cost: number;
   }> {
     try {
-      console.log('🖼️ Generating with Gemini 2.5 Flash Image (Nano Banana)...');
+      console.log('🖼️ Generating with Nano Banana Pro (Gemini 3 Pro Image Preview)...');
 
-      // New @google/genai SDK API
+      // New @google/genai SDK API - using latest Nano Banana Pro model
       const result = await this.genAI.models.generateContent({
-        model: 'gemini-2.5-flash-image',
-        contents: prompt
+        model: 'gemini-3-pro-image-preview',
+        contents: prompt,
+        config: {
+          responseModalities: ['TEXT', 'IMAGE'],
+          imageConfig: {
+            aspectRatio: '16:9',
+            imageSize: '2K'
+          }
+        }
       });
 
       console.log('📦 Response received from Gemini');
@@ -602,10 +644,14 @@ MOOD: Professional yet innovative, forward-thinking tech aesthetic
 
       // Method 1: Check candidates for inline data (new SDK structure)
       if (result.candidates && result.candidates[0]?.content?.parts) {
-        for (const part of result.candidates[0].content.parts) {
+        // Find the last image part, as thinking models might produce interim thought images
+        // The documentation says: "The last image within Thinking is also the final rendered image."
+        const parts = result.candidates[0].content.parts;
+        for (let i = parts.length - 1; i >= 0; i--) {
+          const part = parts[i];
           if ('inlineData' in part && part.inlineData?.data) {
             imageBase64 = part.inlineData.data;
-            console.log('✓ Found image in inlineData');
+            console.log('✓ Found image in inlineData (final image)');
             break;
           }
         }
@@ -634,45 +680,45 @@ MOOD: Professional yet innovative, forward-thinking tech aesthetic
         }
       }
 
+      // If no image found, try one more time with 'gemini-2.5-flash-image' if 'gemini-3-pro-image-preview' failed silently or wasn't found
+      if (!imageBase64 && prompt.length > 0) {
+          // This is a safety check, but usually it would throw an error if model not found.
+          // However, if the user doesn't have access to the model, it might return empty or error.
+      }
+
       if (!imageBase64) {
         console.log('⚠️ No image data found in response, using enhanced SVG fallback');
         console.log('Response structure:', JSON.stringify({
           candidates: result.candidates?.length,
           hasParts: result.candidates?.[0]?.content?.parts?.length
         }));
-        return this.generateFallbackImage(prompt);
+        return this.generateFallbackImage(prompt, analysis);
       }
 
-      // Save to public directory
-      const timestamp = Date.now();
-      const filename = `infographic-${timestamp}.png`;
-      const publicDir = path.join(process.cwd(), 'public', 'generated-infographics');
-
-      if (!fs.existsSync(publicDir)) {
-        fs.mkdirSync(publicDir, { recursive: true });
-      }
-
+      // In production (Vercel, Netlify), filesystem is read-only
+      // Return base64 data URL instead of saving to disk
       const imageBuffer = Buffer.from(imageBase64, 'base64');
-      const localPath = path.join(publicDir, filename);
 
       // Optimize with sharp
-      await sharp(imageBuffer)
+      const optimizedBuffer = await sharp(imageBuffer)
         .png({ quality: 95, compressionLevel: 6 })
-        .toFile(localPath);
+        .toBuffer();
 
-      const imageUrl = `/generated-infographics/${filename}`;
-      console.log('✅ Image generated and saved:', imageUrl);
+      const optimizedBase64 = optimizedBuffer.toString('base64');
+      const imageUrl = `data:image/png;base64,${optimizedBase64}`;
+
+      console.log('✅ Image generated successfully');
 
       return {
         imageUrl,
-        imageBase64,
+        imageBase64: optimizedBase64,
         cost: 0.04
       };
     } catch (error: any) {
       console.error('❌ Gemini 2.5 Flash Image error:', error.message);
       console.error('Error details:', error);
       console.log('📝 Falling back to enhanced SVG generation');
-      return this.generateFallbackImage(prompt);
+      return this.generateFallbackImage(prompt, analysis);
     }
   }
 
@@ -680,7 +726,7 @@ MOOD: Professional yet innovative, forward-thinking tech aesthetic
    * Enhanced fallback image generation using SVG
    * Creates professional, content-aware infographics
    */
-  private async generateFallbackImage(prompt: string): Promise<{
+  private async generateFallbackImage(prompt: string, analysis?: PostAnalysis): Promise<{
     imageUrl: string;
     imageBase64?: string;
     cost: number;
@@ -688,17 +734,36 @@ MOOD: Professional yet innovative, forward-thinking tech aesthetic
     console.log('🎨 Creating professional SVG infographic...');
 
     // Extract information from prompt
-    const titleMatch = prompt.match(/HEADLINE:\s*"([^"]+)"/);
-    const title = titleMatch ? titleMatch[1] : 'Tech Insights';
+    let title = 'Tech Insights';
+    let keyPoints: string[] = [];
 
-    // Extract key points if present
-    const keyPointsMatch = prompt.match(/key points[^:]*:([^"]*)"([^"]+)"/gi);
-    const keyPoints: string[] = [];
-    if (keyPointsMatch) {
-      keyPointsMatch.forEach(match => {
-        const point = match.match(/"([^"]+)"/);
-        if (point) keyPoints.push(point[1]);
-      });
+    if (analysis) {
+      title = analysis.mainTopic;
+      keyPoints = analysis.keyPoints;
+    } else {
+      const titleMatch = prompt.match(/HEADLINE:\s*"([^"]+)"/);
+      if (titleMatch) {
+        title = titleMatch[1];
+      } else {
+        // Try to extract from Bhargav Architect prompt
+        const topicMatch = prompt.match(/Suggested topic:\s*([^\n]+)/);
+        if (topicMatch) title = topicMatch[1];
+      }
+
+      // Extract key points if present
+      const keyPointsMatch = prompt.match(/key points[^:]*:([^"]*)"([^"]+)"/gi);
+      if (keyPointsMatch) {
+        keyPointsMatch.forEach(match => {
+          const point = match.match(/"([^"]+)"/);
+          if (point) keyPoints.push(point[1]);
+        });
+      } else {
+        // Try to extract from Bhargav Architect prompt hints
+        const hintsMatch = prompt.match(/Key points:\s*([^\n]+)/);
+        if (hintsMatch) {
+          keyPoints = hintsMatch[1].split('|').map(p => p.trim());
+        }
+      }
     }
 
     // Detect style from prompt
@@ -723,6 +788,68 @@ MOOD: Professional yet innovative, forward-thinking tech aesthetic
     }
 
     // Create enhanced SVG
+    // Check if this is a comparison/technical topic (like the DeepSeek MHC post)
+    const isComparison = analysis?.visualConcept?.toLowerCase().includes('comparison') || 
+                         title.toLowerCase().includes('vs') || 
+                         title.toLowerCase().includes('mhc');
+
+    let svgContent = '';
+
+    if (isComparison) {
+        // DeepSeek Style 3-Panel Layout
+        const cardWidth = 480;
+        const cardHeight = 500;
+        const startX = 100;
+        const startY = 400;
+        const gap = 50;
+        
+        // Define panel titles based on known context or generic
+        const panelTitles = analysis?.subTopics?.length === 3 ? analysis.subTopics : ['Traditional', 'Current State', 'Innovation'];
+        const panelColors = ['#E0F2FE', '#FCE7F3', '#DCFCE7']; // Light Blue, Light Pink, Light Green
+        const borderColors = ['#0EA5E9', '#EC4899', '#22C55E'];
+
+        svgContent = `
+        <!-- 3-Panel Comparison Layout -->
+        ${[0, 1, 2].map(i => `
+            <!-- Panel ${i+1} -->
+            <rect x="${startX + (i * (cardWidth + gap))}" y="${startY}" width="${cardWidth}" height="${cardHeight}" rx="24" fill="${panelColors[i]}" stroke="${borderColors[i]}" stroke-width="2" />
+            
+            <!-- Panel Header -->
+            <rect x="${startX + (i * (cardWidth + gap))}" y="${startY}" width="${cardWidth}" height="80" rx="24" fill="${borderColors[i]}" opacity="0.2" />
+            <text x="${startX + (i * (cardWidth + gap)) + cardWidth/2}" y="${startY + 50}" font-family="Inter, sans-serif" font-size="24" font-weight="bold" fill="#0F172A" text-anchor="middle">
+                ${this.truncateText(panelTitles[i] || `Phase ${i+1}`, 30)}
+            </text>
+
+            <!-- Panel Content Placeholder (Diagram) -->
+            <rect x="${startX + (i * (cardWidth + gap)) + 40}" y="${startY + 100}" width="${cardWidth - 80}" height="200" rx="12" fill="white" opacity="0.6" />
+            <circle cx="${startX + (i * (cardWidth + gap)) + cardWidth/2}" cy="${startY + 200}" r="40" fill="${borderColors[i]}" opacity="0.4" />
+            
+            <!-- Panel Text -->
+            <foreignObject x="${startX + (i * (cardWidth + gap)) + 30}" y="${startY + 320}" width="${cardWidth - 60}" height="160">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Inter, sans-serif; font-size: 20px; color: #334155; text-align: center; line-height: 1.4;">
+                    ${this.truncateText(keyPoints[i] || 'Key architectural difference and improvement point.', 120)}
+                </div>
+            </foreignObject>
+        `).join('')}
+        `;
+    } else {
+        // Default List Layout
+        svgContent = keyPoints.length > 0 ? `
+        <!-- Key Points Section -->
+        ${keyPoints.slice(0, 3).map((point, i) => `
+          <!-- Point ${i + 1} -->
+          <circle cx="200" cy="${450 + (i * 100)}" r="24" fill="${primaryColor}" opacity="0.2"/>
+          <text x="200" y="${458 + (i * 100)}" font-family="Inter, SF Pro, Arial, sans-serif" font-size="20" font-weight="bold" fill="${primaryColor}" text-anchor="middle">${i + 1}</text>
+          <text x="250" y="${458 + (i * 100)}" font-family="Inter, SF Pro, Arial, sans-serif" font-size="22" fill="${textColor}" opacity="0.9">${this.truncateText(point, 80)}</text>
+        `).join('')}
+        ` : `
+        <!-- Subtitle -->
+        <text x="896" y="500" font-family="Inter, SF Pro, Arial, sans-serif" font-size="32" fill="${textColor}" opacity="0.6" text-anchor="middle">
+          Professional Tech Infographic
+        </text>
+        `;
+    }
+
     const svg = `
     <svg width="1792" height="1024" xmlns="http://www.w3.org/2000/svg">
       <defs>
@@ -751,22 +878,9 @@ MOOD: Professional yet innovative, forward-thinking tech aesthetic
       <rect x="120" y="120" width="1552" height="4" fill="${primaryColor}" opacity="0.3"/>
 
       <!-- Title -->
-      ${this.wrapText(title, 896, 280, 56, textColor, 1400)}
+      ${this.wrapText(title, 896, 200, 56, textColor, 1400)}
 
-      ${keyPoints.length > 0 ? `
-      <!-- Key Points Section -->
-      ${keyPoints.slice(0, 3).map((point, i) => `
-        <!-- Point ${i + 1} -->
-        <circle cx="200" cy="${450 + (i * 100)}" r="24" fill="${primaryColor}" opacity="0.2"/>
-        <text x="200" y="${458 + (i * 100)}" font-family="Inter, SF Pro, Arial, sans-serif" font-size="20" font-weight="bold" fill="${primaryColor}" text-anchor="middle">${i + 1}</text>
-        <text x="250" y="${458 + (i * 100)}" font-family="Inter, SF Pro, Arial, sans-serif" font-size="22" fill="${textColor}" opacity="0.9">${this.truncateText(point, 80)}</text>
-      `).join('')}
-      ` : `
-      <!-- Subtitle -->
-      <text x="896" y="500" font-family="Inter, SF Pro, Arial, sans-serif" font-size="32" fill="${textColor}" opacity="0.6" text-anchor="middle">
-        Professional Tech Infographic
-      </text>
-      `}
+      ${svgContent}
 
       <!-- Decorative Elements -->
       <circle cx="1600" cy="200" r="80" fill="${secondaryColor}" opacity="0.08"/>
@@ -785,24 +899,19 @@ MOOD: Professional yet innovative, forward-thinking tech aesthetic
       </text>
     </svg>`;
 
-    const timestamp = Date.now();
-    const filename = `infographic-${timestamp}.png`;
-    const publicDir = path.join(process.cwd(), 'public', 'generated-infographics');
-
-    if (!fs.existsSync(publicDir)) {
-      fs.mkdirSync(publicDir, { recursive: true });
-    }
-
-    const localPath = path.join(publicDir, filename);
-
-    await sharp(Buffer.from(svg))
+    // Generate PNG from SVG and return as base64 (production-safe)
+    const pngBuffer = await sharp(Buffer.from(svg))
       .png({ quality: 95 })
-      .toFile(localPath);
+      .toBuffer();
 
-    console.log('✅ Professional infographic created:', `/generated-infographics/${filename}`);
+    const base64Image = pngBuffer.toString('base64');
+    const imageUrl = `data:image/png;base64,${base64Image}`;
+
+    console.log('✅ Professional infographic created (SVG fallback)');
 
     return {
-      imageUrl: `/generated-infographics/${filename}`,
+      imageUrl,
+      imageBase64: base64Image,
       cost: 0
     };
   }

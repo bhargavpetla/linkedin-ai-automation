@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
         sendUpdate('generation', 'Generating infographic with Gemini Imagen...', 70);
         const genStart = Date.now();
 
-        const result = await imageService.generateImageFromPost(postContent);
+        const result = await imageService.generateImageFromPost(postContent, { analysis });
         const genTime = ((Date.now() - genStart) / 1000).toFixed(2);
 
         sendUpdate('generation', `Image generated successfully (${genTime}s)`, 90);
@@ -171,7 +171,7 @@ export async function POST(request: NextRequest) {
             selected: selectedStyle,
             colors: selectedColors
           },
-          prompt
+          promptPreview: prompt.substring(0, 500) + '...'
         });
 
       } catch (error: any) {
